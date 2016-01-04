@@ -172,7 +172,7 @@ module Sequel
           cps = conn.prepareCall(sql)
 
           i = 0
-          args.each{|arg| set_ps_arg(cps, arg, i+=1)}
+          args.each{|arg| set_ps_arg(conn, cps, arg, i+=1)}
 
           begin
             if block_given?
@@ -424,7 +424,7 @@ module Sequel
             cps_sync(conn){|cpsh| cpsh[name] = [sql, cps]} if name
           end
           i = 0
-          args.each{|arg| set_ps_arg(cps, arg, i+=1)}
+          args.each{|arg| set_ps_arg(conn, cps, arg, i+=1)}
           msg = "EXECUTE#{" #{name}" if name}"
           if ps.log_sql
             msg << " ("
@@ -558,7 +558,7 @@ module Sequel
       # for the prepared statement, and bind it individually.  This
       # guesses which JDBC method to use, and hopefully JRuby will convert
       # things properly for us.
-      def set_ps_arg(cps, arg, i)
+      def set_ps_arg(conn, cps, arg, i)
         case arg
         when Integer
           cps.setLong(i, arg)
@@ -582,6 +582,15 @@ module Sequel
           cps.setTimestamp(i, arg)
         when Java::JavaSql::Date
           cps.setDate(i, arg)
+        when Array
+          case arg.first
+          when Integer
+            cps.setArray(i, conn.createArrayOf( "int4", arg.to_java(:Integer)))
+          when String
+            cps.setArray(i, conn.createArrayOf( "text", arg.to_java(:string)))
+          else
+            cps.setObject(i, arg)
+          end
         else
           cps.setObject(i, arg)
         end
